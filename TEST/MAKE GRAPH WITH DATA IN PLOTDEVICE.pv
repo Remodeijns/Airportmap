@@ -1,0 +1,22 @@
+size(512, 512)
+background(1)
+
+text("Welcome to PlotDevice", 40, 40)
+
+import json
+
+with open('AIRPORTS.json') as infile:
+    freqlist = json.load(infile)
+
+print len(freqlist)
+print freqlist[0]
+
+for word in freqlist[:20]:
+    y = y + 22                      (DIT DAT ALLE BALKEN ONDER ELKAAR KOMEN)
+    barwidth = word['freq']         (DIT GEEFT DE WIDTH VAN DE BAR AAN. DE LENGTE VAN DE VARIABLES)
+    print barwidth /3               (DEVIDE IT TO 3 YOU CAN MAKE DE GRAPH FIT IN YOUR IMAGE)
+    fill(0,0,0.8)
+    rect(100, y, barwidth, 20)      (HIER GEEF JE AAN WAT VOOR EEN VORM DE BAR MOET ZIJN, MET DAARIN DE VALUES VAN DE CODE ERBOVEN )
+    fill(0,0,0.8)
+    text(word['word'], 10, y )      (HIER LAAT JE DE WOORDEN DIE BIJ HET NUMMER HOREN ZIEN.. MET ERACHTER DE VALUES VAN DE POSITIES)
+    x

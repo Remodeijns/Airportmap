@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<style>
+    body {
+        background: black;
+    }
+    
+    path,
+    line {
+        vector-effect: non-scaling-stroke;
+    }
+    
+    .countries path {
+        stroke: white;
+        stroke-width: 0.3;
+        opacity: 0.95;
+        fill: #999;
+    }
+    
+    .links {
+        stroke: #444;
+        stroke-opacity: 0.8;
+        stroke-width: 0.5px;
+        stroke-dasharray: 0.5 2;
+        fill: none;
+    }
+    
+    .polygons {
+        stroke: #222;
+        stroke-width: 0.15;
+        fill-opacity: 0.5;
+    }
+</style>
+<svg width="900" height="650">
+    <defs>
+        <radialGradient id="grad1" cx="50%" cy="50%" r="50%" fx="10%" fy="50%">
+            <stop offset="0%" style="stop-color:black;stop-opacity:0" />
+            <stop offset="90%" style="stop-color:black;stop-opacity:0.1" />
+            <stop offset="94%" style="stop-color:black;stop-opacity:0.3" />
+            <stop offset="99%" style="stop-color:black;stop-opacity:0.99" />
+        </radialGradient>
+    </defs>
+</svg>
+
+<script src="https://d3js.org/d3.v4.js"></script>
+<script src="https://d3js.org/d3-geo-projection.v1.min.js"></script>
+<script src="https://d3js.org/d3-scale-chromatic.v1.min.js"></script>
+<script src="https://d3js.org/d3-hexbin.v0.2.min.js"></script>
+<script src="https://d3js.org/topojson.v1.min.js"></script>
+<script src="https://unpkg.com/d3-geo-voronoi"></script>
+
+<!--
+<script src="./d3.v4.js"></script>
+<script src="./d3-geo-projection.js"></script>
+<script src="./d3-scale-chromatic.js"></script>
+<script src="./d3-hexbin.js"></script>
+<script src="./topojson.min.js"></script>
+<script src="./d3-geo-voronoi.js"></script>
+-->
+
+<script>
+    var color = d3.scaleOrdinal(d3.schemeSet3);
+
+    var svg = d3.select("svg"),
+        width = +svg.attr("width"),
+        height = +svg.attr("height");
+
+    svg = svg
+        .append('g');
+
+    var hx = d3_hexbin.hexbin().radius(1);
+
+    d3.queue()
+        .defer(d3.json, 'countries.topo.json')
+        .defer(d3.csv, 'airports-selected.csv')
+        .await(function (err, wjson, airports) {
+
+            sites = hx(
+                    airports
+                    .map(function (e) {
+                        return [+e.lon || +e.longitude_deg, +e.lat || +e.latitude_deg, e.name];
+                    })
+                )
+                .map(function (e) {
+                    return e[0];
+                })
+                .map(function (e) {
+                    // add jitter to avoid exact alignements
+                    return [e[0] + (1 - 2 * Math.random()) * 1e-9, e[1] + (1 - 2 * Math.random()) * 1e-9, e[2]];
+                });
+
+
+            var v = d3.geoVoronoi(),
+                polygons = v.polygons(sites),
+                links = v.links();
+
+
+            var projection = d3.geoOrthographic().scale(320).rotate([100, -20])
+                .translate([width / 2, height / 2]);
+
+            path = d3.geoPath()
+                .projection(projection)
+                .pointRadius(1);
+
+            var g = svg.append('g')
+                .attr("class", "world")
+
+
+            g.append("defs").append("path")
+                .datum({
+                    type: "Sphere"
+                })
+                .attr("id", "sphere")
+                .attr("d", path);
+
+            g.append("use")
+                .attr("xlink:href", "#sphere")
+                .attr("fill", "white");
+
+            countries = g.append('g')
+                .attr('class', 'countries')
+                .selectAll('path')
+                .data(topojson.feature(wjson, wjson.objects.countries).features)
+                .enter()
+                .append('path');
+
+
+            var poly = g.append("g")
+                .attr("class", "polygons")
+                .selectAll("path")
+                .data(polygons.features)
+                .enter()
+                .append("path")
+                .attr('fill', function (d, i) {
+                    return color(i);
+                })
+                .attr('d', path);
+
+            poly
+                .append('title')
+                .text(function (d, i) {
+                    return (sites[i] || [])[2];
+                });
+
+
+            var site = g.append("g")
+                .attr("class", "site")
+                .datum({
+                    type: "MultiPoint",
+                    coordinates: sites
+                })
+                .append('path')
+                .attr('d', path)
+
+
+            g.append("use")
+                .attr("class", "stroke")
+                .attr("xlink:href", "#sphere")
+                .attr("stroke", "black")
+                .attr("stroke-width", 3)
+                .attr("fill", "url(#grad1)")
+                .attr('pointer-events', 'none');
+
+
+            var link = g.append("g")
+                .attr("class", "links")
+                .selectAll("path")
+                .data(links.features)
+                .enter().append("path")
+                .attr("d", path);
+
+
+
+            function draw() {
+                countries.attr("d", path);
+                site.attr('d', path)
+                link.attr("d", path);
+                poly.attr("d", path);
+            }
+
+            draw();
+
+
+            var λ = d3.scaleLinear()
+                .domain([0, width])
+                .range([-180, 180]);
+
+            var φ = d3.scaleLinear()
+                .domain([0, height])
+                .range([90, -90]);
+
+            svg.select('.world')
+                .call(d3.drag()
+                    .on("start", dragstarted)
+                    .on("drag", dragged)
+                )
+                .call(d3.zoom()
+                    .scaleExtent([1, 8])
+                    //.translateExtent([[0, 0], [width, height]])
+                    .on("zoom", zoomed)
+                );
+
+            function zoomed() {
+                svg.select('.world').attr("transform", d3.event.transform);
+            }
+
+            function dragstarted() {
+                q = projection.rotate();
+                r = d3.mouse(this);
+            }
+
+            function dragged() {
+                var p = d3.mouse(this);
+                projection.rotate([λ(p[0]) - λ(r[0]) + q[0], φ(p[1]) - φ(r[1]) + q[1]]);
+                draw();
+            }
+
+
+        });
+</script>
