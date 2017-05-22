@@ -1,7 +1,8 @@
 import json
+from haversine import haversine
 
-size(1200, 512)
-background(1)
+size(2400, 1024)
+background(0)
 
 def mapValue(value, fromMin, fromMax, toMin, toMax):
     # Figure out how 'wide' each range is
@@ -20,14 +21,30 @@ def xOfDot(lon):
 def yOfDot(lat):
     return mapValue(lat, -90, 90, HEIGHT, 0)
 
+
 with open("AIRPORTS.json", 'r') as inputFile:
     airportData = json.load(inputFile)
 
-for airport in airportData:
-	# convert lat / lon
-	x = xOfDot(airport['longitude_deg'])
-	y = yOfDot(airport['latitude_deg'])
-	diameter = 1.0
-	oval(x, y, diameter, diameter)
-	with bezier(x, y) as path:
-	    lineto(random(x), random(y))
+
+stroke(1)
+
+fill(1)
+
+previous = None
+for airport in airportData :  #Pakt nu airports in stappen van 5
+    # convert lat / lon
+    if previous:
+        x = xOfDot(airport['longitude_deg'])
+        y = yOfDot(airport['latitude_deg'])
+        x2 = xOfDot(previous['longitude_deg'])
+        y2 = yOfDot(previous['latitude_deg'])
+        diameter = 1.0
+        line( x, y, x2 , y2 )
+# 	line(random(x), random(y), random(x), random(y))
+#  	nostroke()
+# 	fill(0)
+#  	oval(x, y, x, y)
+
+    previous = airport
+    
+	
